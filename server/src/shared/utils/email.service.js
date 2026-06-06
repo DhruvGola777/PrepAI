@@ -28,8 +28,9 @@ export async function sendWelcomeEmail(user) {
             <p>Thank you for logging into the <strong>AI Interview Platform</strong>! We're excited to have you on board.</p>
             <p>Your account has been successfully created with the following details:</p>
             <ul>
+              <li><strong>Name:</strong> ${displayName}</li>
               <li><strong>Email:</strong> ${user.email}</li>
-              <li><strong>Username:</strong> ${user.username}</li>
+              <li><strong>Username:</strong> ${user.username || 'N/A'}</li>
             </ul>
             <p>You can now start using our platform to prepare for your interviews with AI-powered guidance.</p>
             <p style="margin-top: 30px; color: #666;">

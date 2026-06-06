@@ -1,8 +1,10 @@
 import express from 'express';
 import passport from 'passport';
 import { googleCallback, refreshToken, logout, register, localLogin } from './auth.controller.js';
+import UnauthorizedError from '../../shared/errors/UnauthorizedError.js';
 import { authenticateJWT } from '../../shared/middleware/authMiddleware.js';
 import { validateRequest } from '../../shared/middleware/validation.middleware.js';
+import { catchAsync } from '../../shared/errors/catchAsync.js';
 import { loginSchema, registerSchema } from './auth.validation.js';
 
 const authrouter = express.Router();
@@ -12,14 +14,14 @@ const authrouter = express.Router();
  * @desc Register a new local user
  * @access Public
  */
-authrouter.post('/register', validateRequest(registerSchema), register);
+authrouter.post('/register', validateRequest(registerSchema), catchAsync(register));
 
 /**
  * @route POST /api/auth/login
  * @desc Local user login with email/password
  * @access Public
  */
-authrouter.post('/login', validateRequest(loginSchema), localLogin);
+authrouter.post('/login', validateRequest(loginSchema), catchAsync(localLogin));
 
 /**
  * @route GET /api/auth/google
@@ -38,16 +40,16 @@ authrouter.get('/google', passport.authenticate('google', {
  */
 authrouter.get('/google/callback', passport.authenticate('google', {
   session: false,
-  failureRedirect: '/auth/google/failure'
-}), googleCallback);
+  failureRedirect: '/api/auth/google/failure'
+}), catchAsync(googleCallback));
 
 /**
  * @route GET /api/auth/google/failure
  * @desc Handle Google OAuth2 authentication failure
  * @access Public
  */
-authrouter.get('/google/failure', (req, res) => {
-  res.status(401).json({ message: 'Google sign-in failed' });
+authrouter.get('/google/failure', (req, res, next) => {
+  next(new UnauthorizedError('Google sign-in failed'));
 });
 
 /**
@@ -55,14 +57,14 @@ authrouter.get('/google/failure', (req, res) => {
  * @desc Refresh access token
  * @access Public
  */
-authrouter.post('/token', refreshToken);
+authrouter.post('/token', catchAsync(refreshToken));
 
 /**
  * @route POST /api/auth/logout
  * @desc Logout user and invalidate tokens
  * @access Public
  */
-authrouter.post('/logout', logout);
+authrouter.post('/logout', catchAsync(logout));
 
 /**
  * @route GET /api/auth/profile

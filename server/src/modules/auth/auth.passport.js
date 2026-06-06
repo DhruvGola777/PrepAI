@@ -12,7 +12,9 @@ passport.use(new GoogleStrategy({
   try {
     const googleId = profile.id;
     const email = profile.emails?.[0]?.value;
-    const name = profile.displayName;
+    const emailLocalPart = email ? email.split('@')[0] : undefined;
+    const profileName = profile.displayName || `${profile.name?.givenName || ''} ${profile.name?.familyName || ''}`.trim();
+    const name = profileName || emailLocalPart;
     const googlePicture = profile.photos?.[0]?.value;
 
     if (!email) {
@@ -24,8 +26,8 @@ passport.use(new GoogleStrategy({
     if (user) {
       // update basic profile fields
       user.email = email || user.email;
-      user.name = name || user.name;
-      user.picture = googlePicture || user.picture || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.username)}&backgroundColor=random`;
+      user.name = name || user.name || emailLocalPart;
+      user.picture = googlePicture || user.picture || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.username || emailLocalPart)}&backgroundColor=random`;
       await user.save();
       return done(null, user);
     }
@@ -36,14 +38,14 @@ passport.use(new GoogleStrategy({
       // link googleId to existing account
       user.googleId = googleId;
       user.provider = 'google';
-      user.name = name || user.name;
-      user.picture = googlePicture || user.picture || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.username)}&backgroundColor=random`;
+      user.name = name || user.name || emailLocalPart;
+      user.picture = googlePicture || user.picture || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.username || emailLocalPart)}&backgroundColor=random`;
       await user.save();
       return done(null, user);
     }
 
     // No existing user, create a new one
-    const username = email ? email.split('@')[0] : undefined;
+    const username = emailLocalPart;
     const defaultPicture = googlePicture || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(username)}&backgroundColor=random`;
     const newUser = await User.create({ googleId, email, name, picture: defaultPicture, provider: 'google', username });
 
