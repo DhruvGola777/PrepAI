@@ -1,5 +1,6 @@
 import passport from 'passport';
 import { generateAccessToken, generateRefreshToken, saveRefreshToken, getUserByRefreshToken, revokeRefreshToken, registerLocalUser, authenticateLocalUser } from './auth.service.js';
+import { findUserByEmail, createUserProfile } from '../user/user.service.js';
 import { sendWelcomeEmail } from '../../shared/utils/email.service.js';
 import ConflictError from '../../shared/errors/ConflictError.js';
 import UnauthorizedError from '../../shared/errors/UnauthorizedError.js';
@@ -35,6 +36,11 @@ export const register = async (req, res, next) => {
     const { email, password, name, username } = req.body;
     const displayName = name || username;
     const user = await registerLocalUser({ email, password, name: displayName, username });
+    // Ensure a UserProfile exists for the auth user
+    const existingProfile = await findUserByEmail(user.email);
+    if (!existingProfile) {
+      await createUserProfile({ authId: user._id, email: user.email, name: user.name, username: user.username, picture: user.picture });
+    }
     
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user);
@@ -122,6 +128,12 @@ export const googleCallback = async (req, res, next) => {
     const user = req.user;
     if (!user) {
       return next(new UnauthorizedError('Authentication failed'));
+    }
+
+    // Ensure a UserProfile exists for the auth user (Google)
+    const existingProfile = await findUserByEmail(user.email);
+    if (!existingProfile) {
+      await createUserProfile({ authId: user._id, email: user.email, name: user.name, username: user.username, picture: user.picture });
     }
 
     const accessToken = generateAccessToken(user);
