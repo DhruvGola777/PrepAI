@@ -1,12 +1,15 @@
 import UserProfile from './user.model.js';
+import Interview from '../interview/interview.model.js';
+import Feedback from '../feedback/feedback.model.js';
 import path from 'path';
 import { v2 as cloudinary } from 'cloudinary';
 import streamifier from 'streamifier';
+import { env } from '../../config/env.js';
 
 cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
+  cloud_name: env.CLOUDINARY_CLOUD_NAME,
+  api_key: env.CLOUDINARY_API_KEY,
+  api_secret: env.CLOUDINARY_API_SECRET
 });
 
 const uploadBufferToCloudinary = (buffer, options = {}) => {
@@ -81,14 +84,18 @@ export const getUserWithStats = async (userId) => {
 
   if (!user) return null;
 
-  // Add statistics metadata (placeholder for future interview/score aggregation)
+  // Fetch actual interview count and score from Interview model
+  const interviews = await Interview.find({ userId: user._id }).select('score').lean();
+  const scores = interviews.map(i => i.score).filter(s => s !== undefined && s !== null);
+
   return {
     ...user,
     stats: {
       totalResumes: user.resumes ? user.resumes.length : 0,
-      totalInterviews: user.interviews ? user.interviews.length : 0,
-      averageScore: user.scores && user.scores.length 
-        ? (user.scores.reduce((sum, score) => sum + (score.overall || 0), 0) / user.scores.length).toFixed(2)
+      totalInterviews: interviews.length,
+      completedInterviews: interviews.filter(i => i.score !== undefined && i.score !== null).length,
+      averageScore: scores.length > 0
+        ? (scores.reduce((sum, score) => sum + score, 0) / scores.length).toFixed(2)
         : null
     }
   };
@@ -100,10 +107,15 @@ export const getUserWithStats = async (userId) => {
  * @returns {Promise<Array>} Array of interviews
  */
 export const getUserInterviewsData = async (userId) => {
-  // TODO: Implement interview retrieval logic
-  // Should fetch interviews from Interview model/collection
-  // Return array of interviews for the user
-  return [];
+  const profile = await UserProfile.findById(userId) || await UserProfile.findOne({ authId: userId });
+  if (!profile) return [];
+
+  const interviews = await Interview.find({ userId: profile._id })
+    .select('-__v')
+    .sort({ createdAt: -1 })
+    .lean();
+
+  return interviews || [];
 };
 
 /**
@@ -113,50 +125,49 @@ export const getUserInterviewsData = async (userId) => {
  * @returns {Promise<Object>} Interview details
  */
 export const getInterviewData = async (userId, interviewId) => {
-  // TODO: Implement interview retrieval logic
-  // Should fetch single interview and verify ownership
-  // Return interview with all details (questions, answers, scores, feedback)
-  return null;
+  const profile = await UserProfile.findById(userId) || await UserProfile.findOne({ authId: userId });
+  if (!profile) return null;
+
+  const interview = await Interview.findOne({ _id: interviewId, userId: profile._id })
+    .select('-__v')
+    .populate('feedbackRef')
+    .lean();
+
+  return interview || null;
 };
 
 /**
  * Get user's score summary
- * @param {string} userId - User ID
+ * @param {string} userId - User ID (auth user id or profile id)
  * @returns {Promise<Object>} Score summary statistics
  */
 export const getUserScoreSummary = async (userId) => {
-  const user = await UserProfile.findById(userId)
-    .select('scores')
+  const profile = await UserProfile.findById(userId) || await UserProfile.findOne({ authId: userId });
+  if (!profile) return null;
+
+  const interviews = await Interview.find({ userId: profile._id })
+    .select('score')
     .lean();
 
-  if (!user) return null;
-
-  const scores = user.scores || [];
-  
-  if (scores.length === 0) {
+  if (!interviews || interviews.length === 0) {
     return {
       totalInterviews: 0,
       averageScore: null,
       highestScore: null,
-      lowestScore: null,
-      breakdown: {}
+      lowestScore: null
     };
   }
 
-  const overallScores = scores.map(s => s.overall).filter(s => s !== undefined);
+  const scores = interviews.map(i => i.score).filter(s => s !== undefined && s !== null);
   
   return {
-    totalInterviews: scores.length,
-    averageScore: overallScores.length > 0 
-      ? (overallScores.reduce((a, b) => a + b, 0) / overallScores.length).toFixed(2)
+    totalInterviews: interviews.length,
+    completedInterviews: interviews.length,
+    averageScore: scores.length > 0 
+      ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(2)
       : null,
-    highestScore: overallScores.length > 0 ? Math.max(...overallScores) : null,
-    lowestScore: overallScores.length > 0 ? Math.min(...overallScores) : null,
-    scoresBySource: {
-      feedback: scores.filter(s => s.source === 'feedback').length,
-      ai: scores.filter(s => s.source === 'ai').length,
-      manual: scores.filter(s => s.source === 'manual').length
-    }
+    highestScore: scores.length > 0 ? Math.max(...scores) : null,
+    lowestScore: scores.length > 0 ? Math.min(...scores) : null
   };
 };
 
@@ -166,10 +177,16 @@ export const getUserScoreSummary = async (userId) => {
  * @returns {Promise<Array>} Array of feedback
  */
 export const getUserFeedbackData = async (userId) => {
-  // TODO: Implement feedback retrieval logic
-  // Should fetch all feedback associated with user's interviews
-  // Can be from AI analysis, interviewer notes, or system assessments
-  return [];
+  const profile = await UserProfile.findById(userId) || await UserProfile.findOne({ authId: userId });
+  if (!profile) return [];
+
+  const feedbacks = await Feedback.find({ userId: profile._id })
+    .select('-__v')
+    .populate('interviewId', 'title type status')
+    .sort({ createdAt: -1 })
+    .lean();
+
+  return feedbacks || [];
 };
 
 /**
@@ -178,17 +195,21 @@ export const getUserFeedbackData = async (userId) => {
  * @returns {Promise<Object>} Recommendations based on performance
  */
 export const getUserRecommendations = async (userId) => {
-  // TODO: Implement recommendation logic
-  // Should analyze user's scores, feedback, and interview history
-  // Generate actionable recommendations for improvement
-  // Can include: skills to improve, topics to study, practice areas, etc.
-  return {
-    skillsToImprove: [],
-    topicsToStudy: [],
-    practiceAreas: [],
-    strengths: [],
-    areasForImprovement: []
-  };
+  const profile = await UserProfile.findById(userId) || await UserProfile.findOne({ authId: userId });
+  if (!profile) return [];
+
+  const feedbacks = await Feedback.find({ userId: profile._id })
+    .select('recommendations')
+    .lean();
+
+  const allRecommendations = [];
+  feedbacks.forEach(feedback => {
+    if (feedback.recommendations && Array.isArray(feedback.recommendations)) {
+      allRecommendations.push(...feedback.recommendations);
+    }
+  });
+
+  return allRecommendations;
 };
 
 /**
@@ -199,8 +220,8 @@ export const getUserRecommendations = async (userId) => {
  */
 export const addResumeEntry = async (userId, fileMeta) => {
   const user = await UserProfile.findById(userId);
-  if (!user) return null;
 
+  if (!user) return null;
   // If the fileMeta contains a buffer (multer.memoryStorage), upload to S3
   let storagePath = null;
   let filename = fileMeta.originalname || fileMeta.originalName || fileMeta.filename;
@@ -232,11 +253,11 @@ export const addResumeEntry = async (userId, fileMeta) => {
     storagePath,
     uploadedAt: fileMeta.uploadedAt || new Date()
   };
-
+  
+  
   user.resumes = user.resumes || [];
   user.resumes.push(entry);
   user.currentResumeId = user.resumes[user.resumes.length - 1]._id;
-
   await user.save();
 
   return user.resumes[user.resumes.length - 1];

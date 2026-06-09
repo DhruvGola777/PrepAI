@@ -74,6 +74,7 @@ export const updateCurrentUser = async (req, res) => {
  * @body {file} - Resume file (multipart/form-data)
  */
 export const uploadResume = async (req, res) => {
+
   const userId = req.user.id;
   
   if (!req.file) {
@@ -81,7 +82,6 @@ export const uploadResume = async (req, res) => {
   }
   // upload file buffer to S3 and persist resume metadata
   const resumeEntry = await addResumeEntry(userId, req.file);
-
   res.status(201).json({
     success: true,
     message: 'Resume uploaded successfully',
