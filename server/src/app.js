@@ -3,8 +3,11 @@ import "./modules/auth/auth.passport.js";
 import authrouter from "./modules/auth/auth.routes.js";
 import userRouter from "./modules/user/user.routes.js";
 import interviewRouter from "./modules/interview/interview.routes.js";
+import aiRouter from "./modules/ai/ai.routes.js";
+import feedbackRouter from "./modules/feedback/feedback.routes.js";
 import cookieParser from "cookie-parser";
 import { errorHandler } from "./shared/errors/errorHandler.js";
+import connectDB from "./shared/database/db.js";
 
 const app = express();
 
@@ -17,6 +20,8 @@ app.use(cookieParser());
 app.use('/api/auth', authrouter);
 app.use('/api/users', userRouter);
 app.use('/api/interviews', interviewRouter);
+app.use('/api/ai', aiRouter);
+app.use('/api/feedback', feedbackRouter);
 
 
 //test route

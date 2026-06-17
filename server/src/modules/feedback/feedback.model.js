@@ -14,9 +14,39 @@ const FeedbackSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'UserProfile', required: true },
   interviewId: { type: mongoose.Schema.Types.ObjectId, ref: 'Interview', required: true },
   feedbackText: { type: String },
+  
+  // Detailed Scores
+  scores: {
+    overall: { type: Number, min: 0, max: 100 },
+    communication: { type: Number, min: 0, max: 100 },
+    technical: { type: Number, min: 0, max: 100 },
+    confidence: { type: Number, min: 0, max: 100 },
+    problemSolving: { type: Number, min: 0, max: 100 }
+  },
+
+  scoreSummary: { type: mongoose.Schema.Types.Mixed }, // Kept for backward compatibility
+
+  // Behavioral Evaluation
+  behavioralEvaluation: {
+    starMethod: {
+      score: { type: Number, min: 0, max: 100 },
+      feedback: { type: String }
+    }
+  },
+
+  // Technical Analysis
+  technicalAnalysis: {
+    idealAnswerComparison: { type: String },
+    missingPoints: [{ type: String }],
+    weaknesses: [{ type: String }],
+    strengths: [{ type: String }]
+  },
+
   learningLinks: [LearningLinkSchema],
   recommendations: [RecommendationSchema],
-  scoreSummary: { type: mongoose.Schema.Types.Mixed },
+  
+  improvementSuggestions: [{ type: String }],
+  
   meta: { type: mongoose.Schema.Types.Mixed }
 }, { timestamps: true });
 

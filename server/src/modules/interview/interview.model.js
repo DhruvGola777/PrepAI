@@ -20,6 +20,13 @@ const InterviewSchema = new mongoose.Schema({
   },
 
   // artifacts
+  transcript: [{
+    question: String,
+    answer: String,
+    score: Number,
+    feedback: String,
+    timestamp: { type: Date, default: Date.now }
+  }],
   recordingUrl: { type: String },
   transcriptRef: { type: mongoose.Schema.Types.ObjectId, ref: 'AIAnalysis' },
   analysisRef: { type: mongoose.Schema.Types.ObjectId, ref: 'AIAnalysis' },

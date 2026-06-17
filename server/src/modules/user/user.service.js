@@ -2,15 +2,9 @@ import UserProfile from './user.model.js';
 import Interview from '../interview/interview.model.js';
 import Feedback from '../feedback/feedback.model.js';
 import path from 'path';
-import { v2 as cloudinary } from 'cloudinary';
+import cloudinary from '../../shared/utils/cloudinary.js';
 import streamifier from 'streamifier';
 import { env } from '../../config/env.js';
-
-cloudinary.config({
-  cloud_name: env.CLOUDINARY_CLOUD_NAME,
-  api_key: env.CLOUDINARY_API_KEY,
-  api_secret: env.CLOUDINARY_API_SECRET
-});
 
 const uploadBufferToCloudinary = (buffer, options = {}) => {
   return new Promise((resolve, reject) => {
@@ -61,8 +55,8 @@ export const updateUser = async (userId, updateData) => {
     }
   });
 
-  return await UserProfile.findByIdAndUpdate(
-    userId,
+  return await UserProfile.findOneAndUpdate(
+    { $or: [{ _id: userId }, { authId: userId }] },
     filteredData,
     { new: true, runValidators: true }
   )
@@ -77,10 +71,17 @@ export const updateUser = async (userId, updateData) => {
  * @returns {Promise<Object>} User profile with statistics
  */
 export const getUserWithStats = async (userId) => {
-  const user = await UserProfile.findById(userId)
+  let user = await UserProfile.findById(userId)
     .select('-__v')
     .populate('authId', 'email createdAt')
     .lean();
+
+  if (!user) {
+    user = await UserProfile.findOne({ authId: userId })
+      .select('-__v')
+      .populate('authId', 'email createdAt')
+      .lean();
+  }
 
   if (!user) return null;
 
@@ -219,7 +220,7 @@ export const getUserRecommendations = async (userId) => {
  * @returns {Promise<Object>} Newly added resume entry
  */
 export const addResumeEntry = async (userId, fileMeta) => {
-  const user = await UserProfile.findById(userId);
+  const user = await UserProfile.findById(userId) || await UserProfile.findOne({ authId: userId });
 
   if (!user) return null;
   // If the fileMeta contains a buffer (multer.memoryStorage), upload to S3

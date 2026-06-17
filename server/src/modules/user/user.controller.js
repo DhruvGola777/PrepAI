@@ -82,6 +82,11 @@ export const uploadResume = async (req, res) => {
   }
   // upload file buffer to S3 and persist resume metadata
   const resumeEntry = await addResumeEntry(userId, req.file);
+
+  if (!resumeEntry) {
+    throw new NotFoundError('User profile not found');
+  }
+
   res.status(201).json({
     success: true,
     message: 'Resume uploaded successfully',

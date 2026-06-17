@@ -63,7 +63,8 @@ export const register = async (req, res, next) => {
         username: user.username,
         picture: user.picture
       },
-      accessToken
+      accessToken,
+      refreshToken // Added for easier testing
     });
   } catch (error) {
     console.error('Register error:', error.message);
@@ -109,7 +110,8 @@ export const localLogin = async (req, res, next) => {
         username: user.username,
         picture: user.picture
       },
-      accessToken
+      accessToken,
+      refreshToken // Added for easier testing
     });
   } catch (error) {
     console.error('Login error:', error.message);
@@ -152,7 +154,8 @@ export const googleCallback = async (req, res, next) => {
         username: user.username,
         picture: user.picture
       },
-      accessToken
+      accessToken,
+      refreshToken // Added for easier testing
     });
   } catch (error) {
     console.error('Google callback error:', error.message);
@@ -169,15 +172,16 @@ export const googleCallback = async (req, res, next) => {
  */
 export const refreshToken = async (req, res, next) => {
   try {
-    const token = req.cookies.refreshToken || req.body.refreshToken;
+    // Prioritize body over cookies for easier Postman testing
+    const token = req.body.refreshToken || req.cookies.refreshToken;
     
     if (!token) {
-      return next(new UnauthorizedError('Unauthorized'));
+      return next(new UnauthorizedError('Refresh token missing'));
     }
 
     const user = await getUserByRefreshToken(token);
     if (!user) {
-      return next(new UnauthorizedError('Unauthorized'));
+      return next(new UnauthorizedError('Invalid or expired refresh token'));
     }
 
     const newRefreshToken = generateRefreshToken(user);
@@ -190,7 +194,8 @@ export const refreshToken = async (req, res, next) => {
     setRefreshCookie(res, newRefreshToken);
 
     return res.json({ 
-      accessToken
+      accessToken,
+      refreshToken: newRefreshToken // Return new token for rotation
     });
   } catch (error) {
     console.error('Refresh token error:', error.message);
@@ -205,7 +210,8 @@ export const refreshToken = async (req, res, next) => {
  */
 export const logout = async (req, res, next) => {
   try {
-    const token = req.cookies.refreshToken || req.body.refreshToken;
+    // Prioritize body over cookies for easier Postman testing
+    const token = req.body.refreshToken || req.cookies.refreshToken;
     
     if (!token) {
       return next(new BadRequestError('Refresh token is required'));
@@ -213,7 +219,9 @@ export const logout = async (req, res, next) => {
 
     const user = await getUserByRefreshToken(token);
     if (!user) {
-      return next(new UnauthorizedError('Unauthorized'));
+      // If token is already invalid, we just clear the cookie and succeed
+      clearRefreshCookie(res);
+      return res.json({ message: 'Logout successful (token already invalid)' });
     }
 
     await revokeRefreshToken(user._id);
