@@ -9,6 +9,7 @@ export const analyzeResumeSchema = z.object({
 export const startInterviewSchema = z.object({
   body: z.object({
     type: z.enum(['technical', 'behavioral', 'mixed']).default('mixed'),
+    difficulty: z.enum(['beginner', 'intermediate', 'advanced']).default('intermediate'),
     position: z.string().optional()
   })
 });

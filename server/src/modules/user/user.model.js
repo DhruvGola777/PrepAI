@@ -16,6 +16,8 @@ const UserProfileSchema = new mongoose.Schema({
   email: { type: String },
   name: { type: String },
   picture: { type: String },
+  location: { type: String },
+  bio: { type: String },
 
   // minimal resume history
   resumes: [ResumeEntrySchema],

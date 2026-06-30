@@ -3,7 +3,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { Moon, Sun, MonitorPlay, Menu, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
-const Navbar = () => {
+const Navbar = ({ openLoginModal }) => {
   const { theme, toggleTheme } = useTheme();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -31,11 +31,12 @@ const Navbar = () => {
               {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
             </button>
             
-            <Link to="/login">
-              <button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-full font-medium transition-colors shadow-lg shadow-blue-600/20">
-                Login
-              </button>
-            </Link>
+            <button 
+              onClick={openLoginModal}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-full font-medium transition-colors shadow-lg shadow-blue-600/20 cursor-pointer"
+            >
+              Login
+            </button>
           </div>
         </nav>
 
@@ -61,11 +62,15 @@ const Navbar = () => {
         <div className="md:hidden absolute top-full left-0 right-0 bg-white dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 shadow-lg p-4 flex flex-col gap-4">
           <a href="#features" onClick={() => setIsMobileMenuOpen(false)} className="text-slate-600 dark:text-slate-300 hover:text-blue-600 font-medium py-2">Features</a>
           <a href="#testimonials" onClick={() => setIsMobileMenuOpen(false)} className="text-slate-600 dark:text-slate-300 hover:text-blue-600 font-medium py-2">Testimonials</a>
-          <Link to="/login" onClick={() => setIsMobileMenuOpen(false)} className="mt-2">
-            <button className="w-30 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-3xl font-medium transition-colors">
-              Login
-            </button>
-          </Link>
+          <button 
+            onClick={() => {
+              setIsMobileMenuOpen(false);
+              openLoginModal();
+            }}
+            className="w-30 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-3xl font-medium transition-colors cursor-pointer"
+          >
+            Login
+          </button>
         </div>
       )}
     </header>

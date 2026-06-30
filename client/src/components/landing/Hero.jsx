@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { PlayCircle, Star, Sparkles } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { motion } from 'motion/react';
 
-const Hero = () => {
+const Hero = ({ openLoginModal }) => {
   const [typedText, setTypedText] = useState('');
   const fullText = "I led a web app redesign that faced timeline and technical constraints. I reorganized tasks, implemented agile sprints, and focused on critical features first, delivering on time with positive client feedback.";
-  
+
   useEffect(() => {
     let i = 0;
     const interval = setInterval(() => {
@@ -28,31 +28,37 @@ const Hero = () => {
 
       <div className="container mx-auto px-4 md:px-6 relative z-10">
         <div className="flex flex-col lg:flex-row items-center gap-12 lg:gap-16">
-          
+
           {/* Left Text Content */}
-          <div className="lg:w-1/2 lg:pr-8 flex flex-col items-center text-center lg:items-start lg:text-left">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            className="lg:w-1/2 lg:pr-8 flex flex-col items-center text-center lg:items-start lg:text-left"
+          >
             <div className="inline-flex items-center gap-2 px-4 py-2 mb-6 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium text-sm border border-blue-100 dark:border-blue-800/50">
               <Sparkles size={16} />
               AI-Powered Interview Coach
             </div>
-            
+
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-6 text-slate-900 dark:text-white">
               <span className="text-gradient">Ace your interview</span> with real-time AI assistance
             </h1>
-            
+
             <p className="text-lg md:text-xl text-slate-600 dark:text-slate-300 mb-8 max-w-2xl">
               Never freeze up during critical moments - our AI Assistant delivers perfect responses and feedback in real-time as you practice.
             </p>
-            
+
             <div className="flex flex-col sm:flex-row items-center gap-4 mb-10 w-full sm:w-auto">
-              <Link to="/login" className="w-full sm:w-auto">
-                <button className="flex items-center justify-center w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-full font-semibold text-lg transition-all shadow-lg shadow-blue-600/25 hover:shadow-blue-600/40 hover:-translate-y-0.5">
-                  Get Started Free
-                  <PlayCircle className="ml-2 h-5 w-5" />
-                </button>
-              </Link>
+              <button
+                onClick={openLoginModal}
+                className="flex items-center justify-center w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-full font-semibold text-lg transition-all shadow-lg shadow-blue-600/25 hover:shadow-blue-600/40 hover:-translate-y-0.5 cursor-pointer"
+              >
+                Get Started Free
+                <PlayCircle className="ml-2 h-5 w-5" />
+              </button>
             </div>
-            
+
             {/* Social Proof */}
             <div className="flex flex-col items-center lg:items-start gap-4">
               <div className="flex items-center gap-3">
@@ -74,10 +80,10 @@ const Hero = () => {
                 <span className="ml-2 text-sm text-slate-600 dark:text-slate-400 font-medium">4.9/5 Average Rating</span>
               </div>
             </div>
-          </div>
+          </motion.div>
 
           {/* Right Visual UI element */}
-          <div className="lg:w-1/2 w-full max-w-2xl">
+          <div>
             <div className="glass-card rounded-2xl p-6 md:p-8 relative">
               <div className="flex flex-col gap-6">
                 <div className="flex items-center gap-3 mb-2">
@@ -125,7 +131,7 @@ const Hero = () => {
                 </div>
               </div>
             </div>
-            
+
             {/* Decorative elements */}
             <div className="absolute top-1/4 -right-12 w-24 h-24 bg-blue-500/20 rounded-full filter blur-2xl animate-pulse-slow"></div>
             <div className="absolute bottom-1/4 -left-12 w-32 h-32 bg-indigo-500/20 rounded-full filter blur-2xl animate-pulse-slow delay-1000"></div>
@@ -133,7 +139,7 @@ const Hero = () => {
 
         </div>
       </div>
-    </div>
+    </div >
   );
 };
 

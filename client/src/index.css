@@ -1,9 +1,11 @@
 @import "tailwindcss";
-@custom-variant dark (&:where(.dark, .dark *));
+@variant dark (&:where(.dark, .dark *));
 @theme {
   --color-primary: #3b82f6;
 }
-
+html{
+  scroll-behavior: smooth;
+}
 @layer base {
   html.dark {
     color-scheme: dark;
@@ -20,7 +22,7 @@
 
 @layer utilities {
   .text-gradient {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400;
+    @apply bg-clip-text text-transparent bg-linear-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400;
   }
   
   .glass-card {

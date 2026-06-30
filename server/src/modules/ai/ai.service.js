@@ -91,12 +91,13 @@ export const startInterviewService = async (userId, interviewData) => {
     userId: profile._id,
     title: interviewData.position ? `Interview for ${interviewData.position}` : 'General Mock Interview',
     type: interviewData.type || 'mixed',
+    difficulty: interviewData.difficulty || 'intermediate',
     status: 'running',
     startedAt: new Date(),
     interviewer: {
       provider: 'groq',
       model: 'llama-3.3-70b-versatile',
-      prompt: `You are a senior technical interviewer interviewing for the position of ${interviewData.position || 'Software Engineer'}.`
+      prompt: `You are a senior technical interviewer interviewing for the position of ${interviewData.position || 'Software Engineer'} at a ${interviewData.difficulty || 'intermediate'} level.`
     }
   });
 
@@ -130,7 +131,7 @@ export const generateQuestionService = async (interviewId) => {
   const historyContext = history ? `\n\nInterview History:\n${history}` : "";
 
   const prompt = `
-    Generate a single ${interview.type} interview question for the role of ${interview.title}.
+    Generate a single ${interview.difficulty || 'intermediate'} level ${interview.type} interview question for the role of ${interview.title}.
     ${resumeContext}
     ${historyContext}
 

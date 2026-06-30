@@ -16,4 +16,5 @@ export const env = {
     CLOUDINARY_API_KEY : process.env.CLOUDINARY_API_KEY,
     CLOUDINARY_API_SECRET : process.env.CLOUDINARY_API_SECRET,
     OPENAI_API_KEY : process.env.OPENAI_API_KEY,
+    GROQ_API_KEY : process.env.GROQ_API_KEY,
     }

@@ -1,9 +1,10 @@
-﻿import mongoose from 'mongoose';
+import mongoose from 'mongoose';
 
 const InterviewSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'UserProfile', required: true },
   title: { type: String },
   type: { type: String, enum: ['technical', 'behavioral', 'mixed'], default: 'technical' },
+  difficulty: { type: String, enum: ['beginner', 'intermediate', 'advanced'], default: 'intermediate' },
   status: { type: String, enum: ['draft', 'running', 'completed', 'cancelled'], default: 'draft' },
 
   // execution timestamps
