@@ -1,12 +1,14 @@
 import UserProfile from './user.model.js';
 import Interview from '../interview/interview.model.js';
 import Feedback from '../feedback/feedback.model.js';
+import User from '../auth/auth.model.js';
+import AIAnalysis from '../ai/ai.model.js';
 import path from 'path';
 import cloudinary from '../../shared/utils/cloudinary.js';
 import streamifier from 'streamifier';
 import { env } from '../../config/env.js';
 
-const uploadBufferToCloudinary = (buffer, options = {}) => {
+export const uploadBufferToCloudinary = (buffer, options = {}) => {
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(options, (error, result) => {
       if (error) return reject(error);
@@ -46,7 +48,7 @@ export const findUserById = async (userId) => {
  */
 export const updateUser = async (userId, updateData) => {
   // Filter allowed fields to prevent unauthorized updates
-  const allowedFields = ['name', 'bio', 'location', 'experienceYears', 'skills', 'education', 'picture'];
+  const allowedFields = ['name', 'bio', 'location', 'experienceYears', 'skills', 'education', 'picture', 'settings'];
   const filteredData = {};
 
   Object.keys(updateData).forEach(key => {
@@ -147,28 +149,74 @@ export const getUserScoreSummary = async (userId) => {
   if (!profile) return null;
 
   const interviews = await Interview.find({ userId: profile._id })
-    .select('score')
+    .select('score createdAt')
     .lean();
 
   if (!interviews || interviews.length === 0) {
     return {
       totalInterviews: 0,
+      completedInterviews: 0,
       averageScore: null,
       highestScore: null,
-      lowestScore: null
+      lowestScore: null,
+      currentStreak: 0
     };
   }
 
   const scores = interviews.map(i => i.score).filter(s => s !== undefined && s !== null);
-  
+
+  // Calculate streak based on createdAt dates
+  const dates = interviews.map(i => i.createdAt).filter(d => d);
+  let currentStreak = 0;
+
+  if (dates.length > 0) {
+    const uniqueDays = [...new Set(dates.map(d => {
+      const date = new Date(d);
+      date.setHours(0, 0, 0, 0);
+      return date.getTime();
+    }))].sort((a, b) => b - a);
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayTime = today.getTime();
+    const ONE_DAY = 24 * 60 * 60 * 1000;
+
+    let currentDateToCheck = todayTime;
+
+    // Check if the most recent activity is today or yesterday
+    if (uniqueDays[0] === todayTime || uniqueDays[0] === (todayTime - ONE_DAY)) {
+      if (uniqueDays[0] === (todayTime - ONE_DAY)) {
+        currentDateToCheck = todayTime - ONE_DAY;
+      }
+
+      for (const day of uniqueDays) {
+        if (day === currentDateToCheck) {
+          currentStreak++;
+          currentDateToCheck -= ONE_DAY;
+        } else {
+          break;
+        }
+      }
+    }
+  }
+
+  const now = new Date();
+  const completedThisMonth = interviews.filter(i => {
+    if (!i.createdAt || i.score === undefined || i.score === null) return false;
+    const date = new Date(i.createdAt);
+    return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+  }).length;
+
   return {
     totalInterviews: interviews.length,
-    completedInterviews: interviews.length,
-    averageScore: scores.length > 0 
+    completedInterviews: scores.length,
+    averageScore: scores.length > 0
       ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(2)
       : null,
     highestScore: scores.length > 0 ? Math.max(...scores) : null,
-    lowestScore: scores.length > 0 ? Math.min(...scores) : null
+    lowestScore: scores.length > 0 ? Math.min(...scores) : null,
+    currentStreak,
+    completedThisMonth
   };
 };
 
@@ -199,18 +247,30 @@ export const getUserRecommendations = async (userId) => {
   const profile = await UserProfile.findById(userId) || await UserProfile.findOne({ authId: userId });
   if (!profile) return [];
 
+  // Sort by newest first and limit to the 5 most recent interviews
+  // This prevents the data from growing indefinitely over time
   const feedbacks = await Feedback.find({ userId: profile._id })
     .select('recommendations')
+    .sort({ createdAt: -1 })
+    .limit(5)
     .lean();
 
   const allRecommendations = [];
+  const seenTitles = new Set();
+
   feedbacks.forEach(feedback => {
     if (feedback.recommendations && Array.isArray(feedback.recommendations)) {
-      allRecommendations.push(...feedback.recommendations);
+      feedback.recommendations.forEach(rec => {
+        if (rec.title && !seenTitles.has(rec.title)) {
+          seenTitles.add(rec.title);
+          allRecommendations.push(rec);
+        }
+      });
     }
   });
 
-  return allRecommendations;
+  // Cap at 10 recommendations so the UI doesn't get cluttered
+  return allRecommendations.slice(0, 10);
 };
 
 /**
@@ -254,8 +314,8 @@ export const addResumeEntry = async (userId, fileMeta) => {
     storagePath,
     uploadedAt: fileMeta.uploadedAt || new Date()
   };
-  
-  
+
+
   user.resumes = user.resumes || [];
   user.resumes.push(entry);
   user.currentResumeId = user.resumes[user.resumes.length - 1]._id;
@@ -288,4 +348,37 @@ export const createUserProfile = async (userData) => {
  */
 export const getUserCount = async () => {
   return await UserProfile.countDocuments();
+};
+
+/**
+ * Delete complete user account footprint
+ * @param {string} userId - User ID
+ * @returns {Promise<boolean>} success
+ */
+export const deleteUserAccount = async (userId) => {
+  const profile = await UserProfile.findById(userId) || await UserProfile.findOne({ authId: userId });
+  if (!profile) return false;
+
+  const actualUserId = profile.authId; // The ID in User model
+  const profileId = profile._id;
+
+  // Delete Feedbacks
+  await Feedback.deleteMany({ userId: profileId });
+
+  // Delete Interviews
+  await Interview.deleteMany({ userId: profileId });
+
+  // Note: AIAnalysis might need deletion if linked directly to user, but typically it's linked to Interview
+  if (AIAnalysis) {
+    // If AIAnalysis has userId field (assuming it does based on standard architecture)
+    await AIAnalysis.deleteMany({ userId: profileId }).catch(() => { });
+  }
+
+  // Delete User Profile
+  await UserProfile.findByIdAndDelete(profileId);
+
+  // Delete Auth User
+  await User.findByIdAndDelete(actualUserId);
+
+  return true;
 };

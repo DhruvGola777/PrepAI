@@ -1,11 +1,11 @@
 import express from 'express';
 import passport from 'passport';
-import { googleCallback, refreshToken, logout, register, localLogin } from './auth.controller.js';
+import { googleCallback, refreshToken, logout, register, localLogin, forgotPassword, resetPassword, changePassword } from './auth.controller.js';
 import UnauthorizedError from '../../shared/errors/UnauthorizedError.js';
 import { authenticateJWT } from '../../shared/middleware/authMiddleware.js';
 import { validateRequest } from '../../shared/middleware/validation.middleware.js';
 import { catchAsync } from '../../shared/errors/catchAsync.js';
-import { loginSchema, registerSchema } from './auth.validation.js';
+import { loginSchema, registerSchema, forgotPasswordSchema, resetPasswordSchema, changePasswordSchema } from './auth.validation.js';
 
 const authrouter = express.Router();
 
@@ -74,5 +74,26 @@ authrouter.post('/logout', catchAsync(logout));
 authrouter.get('/profile', authenticateJWT, (req, res) => {
   res.json({ user: req.user });
 });
+
+/**
+ * @route POST /api/auth/forgot-password
+ * @desc Request password reset email
+ * @access Public
+ */
+authrouter.post('/forgot-password', validateRequest(forgotPasswordSchema), catchAsync(forgotPassword));
+
+/**
+ * @route POST /api/auth/reset-password/:token
+ * @desc Reset password using token
+ * @access Public
+ */
+authrouter.post('/reset-password/:token', validateRequest(resetPasswordSchema), catchAsync(resetPassword));
+
+/**
+ * @route POST /api/auth/change-password
+ * @desc Change user password
+ * @access Private
+ */
+authrouter.post('/change-password', authenticateJWT, validateRequest(changePasswordSchema), catchAsync(changePassword));
 
 export default authrouter;

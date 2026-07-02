@@ -8,7 +8,9 @@ import {
   getInterviewData,
   getUserScoreSummary,
   getUserFeedbackData,
-  getUserRecommendations as getUserRecommendationsService
+  getUserRecommendations as getUserRecommendationsService,
+  deleteUserAccount,
+  uploadBufferToCloudinary
 } from './user.service.js';
 import NotFoundError from '../../shared/errors/NotFoundError.js';
 import ForbiddenError from '../../shared/errors/ForbiddenError.js';
@@ -35,6 +37,11 @@ export const getCurrentUser = async (req, res) => {
     }
 
     throw new NotFoundError('User not found');
+  }
+
+  if (user && !user.picture && req.user.picture) {
+    user.picture = req.user.picture;
+    await updateUser(user._id, { picture: req.user.picture });
   }
 
   res.status(200).json({
@@ -91,6 +98,48 @@ export const uploadResume = async (req, res) => {
     success: true,
     message: 'Resume uploaded successfully',
     data: resumeEntry
+  });
+};
+
+/**
+ * Upload user's avatar/profile picture
+ * @POST /users/me/avatar
+ * @access Private
+ * @body {file} - Image file (multipart/form-data)
+ */
+export const uploadAvatar = async (req, res) => {
+  const userId = req.user.id;
+  
+  if (!req.file) {
+    throw new BadRequestError('No file uploaded');
+  }
+
+  // upload file buffer to Cloudinary
+  const folder = `avatars/${userId}`;
+  const publicId = `${Date.now()}-avatar`;
+
+  const result = await uploadBufferToCloudinary(req.file.buffer, {
+    folder,
+    public_id: publicId,
+    resource_type: 'image',
+    overwrite: true
+  });
+
+  if (!result || !result.secure_url) {
+    throw new Error('Failed to upload image to Cloudinary');
+  }
+
+  // Update user profile with new picture URL
+  const updatedUser = await updateUser(userId, { picture: result.secure_url });
+
+  if (!updatedUser) {
+    throw new NotFoundError('User profile not found');
+  }
+
+  res.status(200).json({
+    success: true,
+    message: 'Avatar uploaded successfully',
+    data: { picture: result.secure_url }
   });
 };
 
@@ -187,5 +236,25 @@ export const getRecommendations = async (req, res) => {
     success: true,
     message: 'Personalized recommendations retrieved successfully',
     data: recommendations
+  });
+};
+
+/**
+ * Delete complete user account footprint
+ * @DELETE /users/me
+ * @access Private
+ */
+export const deleteAccount = async (req, res) => {
+  const userId = req.user.id;
+
+  const success = await deleteUserAccount(userId);
+
+  if (!success) {
+    throw new NotFoundError('User not found or already deleted');
+  }
+
+  res.status(200).json({
+    success: true,
+    message: 'Account deleted successfully'
   });
 };

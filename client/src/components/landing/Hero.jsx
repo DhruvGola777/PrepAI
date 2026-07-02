@@ -83,7 +83,7 @@ const Hero = ({ openLoginModal }) => {
           </motion.div>
 
           {/* Right Visual UI element */}
-          <div>
+          <div className="lg:w-1/2 w-full relative mt-12 lg:mt-0">
             <div className="glass-card rounded-2xl p-6 md:p-8 relative">
               <div className="flex flex-col gap-6">
                 <div className="flex items-center gap-3 mb-2">

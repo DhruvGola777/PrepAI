@@ -2,12 +2,15 @@ import React from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { Home, MessageSquare, FileText, History, Settings, LogOut, Bot } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../../hooks/useAuth'
 
 export default function Sidebar({ isOpen, setIsOpen }) {
   const location = useLocation()
   const navigate = useNavigate()
+  const { logout } = useAuth()
 
   const handleLogout = () => {
+    logout()
     navigate("/")
   }
 
@@ -58,7 +61,7 @@ export default function Sidebar({ isOpen, setIsOpen }) {
         <nav className="flex-1 px-3 py-6 space-y-4 flex flex-col items-center w-full">
           {navItems.map(({ path, label, icon: Icon }) => {
             const active = isActive(path)
-            
+
             // Dynamic item classes for open vs closed
             let itemClass = ''
             if (isOpen) {
@@ -87,13 +90,12 @@ export default function Sidebar({ isOpen, setIsOpen }) {
 
         {/* Footer */}
         <div className={footerBorderClass}>
-          <button 
-            onClick={handleLogout} 
-            className={`flex items-center gap-3 p-3 rounded-xl transition-all duration-200 w-full ${
-              isOpen 
-                ? 'hover:bg-white/10 text-white/80 hover:text-white justify-start px-4' 
-                : 'hover:bg-slate-50 dark:hover:bg-gray-800/40 text-blue-400 dark:text-indigo-500/60 hover:text-blue-600 dark:hover:text-indigo-400 justify-center'
-            }`}
+          <button
+            onClick={handleLogout}
+            className={`flex items-center gap-3 p-3 rounded-xl transition-all duration-200 w-full ${isOpen
+              ? 'hover:bg-white/10 text-white/80 hover:text-white justify-start px-4'
+              : 'hover:bg-slate-50 dark:hover:bg-gray-800/40 text-blue-400 dark:text-indigo-500/60 hover:text-blue-600 dark:hover:text-indigo-400 justify-center'
+              }`}
             title="Logout"
           >
             <LogOut className="w-6 h-6 shrink-0" />
@@ -104,9 +106,8 @@ export default function Sidebar({ isOpen, setIsOpen }) {
 
       {/* Mobile Sidebar (Drawer - always uses blue style for consistency) */}
       <aside
-        className={`lg:hidden fixed inset-y-0 left-0 z-40 w-64 bg-linear-to-b from-blue-600 to-indigo-600 text-white border-r border-blue-500/20 shadow-lg transform transition-transform duration-300 ${
-          isOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
+        className={`lg:hidden fixed inset-y-0 left-0 z-40 w-64 bg-linear-to-b from-blue-600 to-indigo-600 text-white border-r border-blue-500/20 shadow-lg transform transition-transform duration-300 ${isOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}
       >
         {/* Logo */}
         <div className="p-6 border-b border-blue-400/20">
@@ -140,11 +141,10 @@ export default function Sidebar({ isOpen, setIsOpen }) {
                 key={path}
                 to={path}
                 onClick={() => setIsOpen(false)}
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
-                  active
-                    ? 'bg-white/20 text-white shadow-lg'
-                    : 'hover:bg-white/10 text-white/80 hover:text-white'
-                }`}
+                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${active
+                  ? 'bg-white/20 text-white shadow-lg'
+                  : 'hover:bg-white/10 text-white/80 hover:text-white'
+                  }`}
               >
                 <Icon className="w-5 h-5" />
                 <span className="font-medium">{label}</span>
@@ -155,8 +155,8 @@ export default function Sidebar({ isOpen, setIsOpen }) {
 
         {/* Footer */}
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-blue-400/20">
-          <button 
-            onClick={handleLogout} 
+          <button
+            onClick={handleLogout}
             className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-white hover:bg-white/10 transition-all duration-200"
           >
             <LogOut className="w-5 h-5" />

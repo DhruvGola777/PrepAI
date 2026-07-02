@@ -36,7 +36,12 @@ export const updateUserSchema = z.object({
       })
     ).optional(),
 
-    picture: z.string().url('Picture must be a valid URL').optional()
+    picture: z.string().url('Picture must be a valid URL').optional(),
+    
+    settings: z.object({
+      emailNotifications: z.boolean().optional(),
+      soundEnabled: z.boolean().optional()
+    }).optional()
   })
 });
 

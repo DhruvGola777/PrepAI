@@ -5,6 +5,15 @@ import { useApp } from '../../context/AppContext'
 export default function QuickStats() {
   const { state } = useApp()
   const { stats } = state
+  if (!stats) {
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {[1, 2, 3, 4].map((n) => (
+          <div key={n} className="glass-card rounded-xl p-6 h-32 animate-pulse bg-slate-100 dark:bg-slate-800/50"></div>
+        ))}
+      </div>
+    )
+  }
 
   const statCards = [
     {

@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Upload, FileText, Check, Download, Trash2, Sparkles, Target, ShieldCheck, Loader2, AlertCircle } from 'lucide-react'
 import { useApp } from '../context/AppContext'
+import { userService } from '../services/userService'
+import { aiService } from '../services/aiService'
+import toast from 'react-hot-toast'
 
 export default function Resume() {
   const { state, updateResume } = useApp()
@@ -18,45 +21,24 @@ export default function Resume() {
   const fileInputRef = useRef(null)
   const analysisRef = useRef(null)
 
-  // Fetch all resumes from mock database on load
-  const fetchResumes = () => {
+  // Fetch all resumes from backend on load
+  const fetchResumes = async () => {
     setLoading(true)
-    setTimeout(() => {
-      setResumes(getMockResumes())
+    try {
+      const res = await userService.getProfile()
+      if (res.data && res.data.resumes) {
+        setResumes(res.data.resumes.sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt)))
+      }
+    } catch (err) {
+      console.error('Failed to fetch resumes:', err)
+    } finally {
       setLoading(false)
-    }, 400)
+    }
   }
 
   useEffect(() => {
     fetchResumes()
   }, [])
-
-  const getMockResumes = () => [
-    {
-      _id: 'mock-resume-01',
-      filename: 'Sarah_Johnson_Lead_Developer_CV.pdf',
-      originalName: 'Sarah_Johnson_Lead_Developer_CV.pdf',
-      size: 245000,
-      uploadedAt: new Date(Date.now() - 86400000 * 3).toISOString()
-    },
-    {
-      _id: 'mock-resume-02',
-      filename: 'Sarah_Johnson_React_Engineer_Resume.pdf',
-      originalName: 'Sarah_Johnson_React_Engineer_Resume.pdf',
-      size: 180000,
-      uploadedAt: new Date(Date.now() - 86400000 * 10).toISOString()
-    }
-  ]
-
-  const getMockAnalysis = (filename) => ({
-    result: {
-      skills: ["React", "JavaScript", "TypeScript", "Node.js", "Redux", "Express", "System Design", "AWS", "Docker", "RESTful APIs", "Git"],
-      experience: "5+ years of software development experience specializing in front-end and full-stack JavaScript application architectures. Led developer squads to scale SaaS dashboards, achieving a 30% speedup in rendering pipelines.",
-      education: "Bachelor of Science in Computer Science - Stanford University (Class of 2019)",
-      summary: `Outstanding full-stack candidate with deep skills in React ecosystems, modular state patterns, and API orchestration. Demonstrated career progress with strong leadership metrics.`,
-      suggestedRoles: ["Senior React Engineer", "Lead Developer", "Frontend Architect", "Full Stack Engineer"]
-    }
-  })
 
   // Drag and drop handlers
   const handleDrag = (e) => {
@@ -84,8 +66,8 @@ export default function Resume() {
     }
   }
 
-  // Local File Upload Mock
-  const handleFileUpload = (file) => {
+  // Local File Upload
+  const handleFileUpload = async (file) => {
     if (!file) return
     setUploading(true)
     setUploadProgress(20)
@@ -94,36 +76,37 @@ export default function Resume() {
       setUploadProgress(prev => (prev < 90 ? prev + 15 : prev))
     }, 150)
 
-    setTimeout(() => {
+    try {
+      const res = await userService.uploadResume(file);
+      
       clearInterval(interval)
       setUploadProgress(100)
-
-      const mockNew = {
-        _id: `mock-resume-${Date.now()}`,
-        filename: file.name,
-        originalName: file.name,
-        size: file.size,
-        uploadedAt: new Date().toISOString()
-      }
-
-      setResumes(prev => [mockNew, ...prev])
+      
+      const newResume = res.data;
+      setResumes(prev => [newResume, ...prev])
       updateResume({
-        fileName: file.name,
-        fileSize: formatBytes(file.size),
+        fileName: newResume.originalName || newResume.filename,
+        fileSize: formatBytes(newResume.size),
         uploadDate: new Date().toLocaleDateString(),
         uploadProgress: 100,
         uploading: false
       })
-
+      toast.success('Resume uploaded successfully!')
+    } catch (err) {
+      clearInterval(interval)
+      setUploadProgress(0)
+      console.error('Failed to upload resume:', err)
+      toast.error('Failed to upload resume to server.')
+    } finally {
       setTimeout(() => {
         setUploading(false)
         setUploadProgress(0)
-      }, 300)
-    }, 1000)
+      }, 500)
+    }
   }
 
-  // Trigger Resume parsing & AI analysis (Mock Only)
-  const handleAnalyzeResume = (resumeId, filename) => {
+  // Trigger Resume parsing & AI analysis
+  const handleAnalyzeResume = async (resumeId, filename) => {
     setAnalyzingId(resumeId)
     setAnalysisResult(null)
     setAnalysisError(null)
@@ -133,15 +116,19 @@ export default function Resume() {
       analysisRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }, 100)
 
-    // Simulate AI request delay
-    setTimeout(() => {
-      setAnalysisResult(getMockAnalysis(filename).result)
+    try {
+      const res = await aiService.analyzeResume(resumeId)
+      setAnalysisResult(res.data.result)
+    } catch (err) {
+      console.error('Analysis failed:', err)
+      setAnalysisError(true)
+    } finally {
       setAnalyzingId(null)
       // Scroll again once full analysis mounts to accommodate height change
       setTimeout(() => {
         analysisRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       }, 100)
-    }, 1500)
+    }
   }
 
   // Delete Resume

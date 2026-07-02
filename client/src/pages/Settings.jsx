@@ -2,6 +2,10 @@ import React, { useState, useEffect } from 'react'
 import { Bell, Volume2, Zap, Moon, Save } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { useTheme } from '../context/ThemeContext' 
+import { userService } from '../services/userService'
+import { authService } from '../services/authService'
+import toast from 'react-hot-toast'
+import { useNavigate } from 'react-router-dom'
 
 export default function Settings() {
   const { state, updateSettings } = useApp()
@@ -9,7 +13,16 @@ export default function Settings() {
   
   const { settings } = state
   const [localSettings, setLocalSettings] = useState(settings)
-  const [saved, setSaved] = useState(false)
+  const navigate = useNavigate()
+
+  // Change Password State
+  const [showChangePassword, setShowChangePassword] = useState(false)
+  const [passwordData, setPasswordData] = useState({ oldPassword: '', newPassword: '' })
+  const [isChangingPassword, setIsChangingPassword] = useState(false)
+
+  // Delete Account State
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   useEffect(() => {
     setLocalSettings(prev => ({
@@ -22,14 +35,50 @@ export default function Settings() {
     setLocalSettings({ ...localSettings, [key]: !localSettings[key] })
   }
 
-  const handleDifficultyChange = (difficulty) => {
-    setLocalSettings({ ...localSettings, difficultyLevel: difficulty })
+
+
+  const handleSave = async () => {
+    try {
+      await userService.updateProfile({ settings: localSettings })
+      updateSettings(localSettings)
+      toast.success('Settings saved successfully!')
+    } catch (error) {
+      console.error('Failed to save settings:', error)
+      toast.error('Failed to save settings to server.')
+    }
   }
 
-  const handleSave = () => {
-    updateSettings(localSettings)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 3000)
+  const handleChangePassword = async (e) => {
+    e.preventDefault()
+    if (passwordData.newPassword.length < 6) {
+      toast.error('New password must be at least 6 characters')
+      return
+    }
+    setIsChangingPassword(true)
+    try {
+      await authService.changePassword(passwordData.oldPassword, passwordData.newPassword)
+      toast.success('Password changed successfully!')
+      setShowChangePassword(false)
+      setPasswordData({ oldPassword: '', newPassword: '' })
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to change password')
+    } finally {
+      setIsChangingPassword(false)
+    }
+  }
+
+  const handleDeleteAccount = async () => {
+    setIsDeleting(true)
+    try {
+      await userService.deleteAccount()
+      toast.success('Account deleted permanently')
+      localStorage.removeItem('token')
+      window.location.href = '/'
+    } catch (error) {
+      toast.error('Failed to delete account')
+      setIsDeleting(false)
+      setShowDeleteConfirm(false)
+    }
   }
 
   return (
@@ -43,13 +92,6 @@ export default function Settings() {
           Customize your PrepAI experience.
         </p>
       </div>
-
-      {/* Save Notification */}
-      {saved && (
-        <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg p-4 text-green-700 dark:text-green-400">
-          Settings saved successfully!
-        </div>
-      )}
 
       {/* Notification Settings */}
       <div className="glass-card rounded-xl p-6 md:p-8">
@@ -105,34 +147,7 @@ export default function Settings() {
         </div>
       </div>
 
-      {/* Difficulty Settings */}
-      <div className="glass-card rounded-xl p-6 md:p-8">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-950/30 flex items-center justify-center">
-            <Zap className="w-6 h-6 text-green-600 dark:text-green-400" />
-          </div>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-50">Interview Preferences</h2>
-        </div>
 
-        <div>
-          <h3 className="font-semibold text-slate-900 dark:text-slate-50 mb-4">Default Difficulty Level</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {['Beginner', 'Intermediate', 'Advanced'].map((level) => (
-              <button
-                key={level}
-                onClick={() => handleDifficultyChange(level)}
-                className={`p-4 rounded-lg font-medium transition-all ${
-                  localSettings.difficultyLevel === level
-                    ? 'bg-blue-600 text-white shadow-lg'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-50 hover:bg-slate-200 dark:hover:bg-slate-700'
-                }`}
-              >
-                {level}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
 
       {/* Appearance Settings */}
       <div className="glass-card rounded-xl p-6 md:p-8">
@@ -174,16 +189,68 @@ export default function Settings() {
       {/* Account Settings */}
       <div className="glass-card rounded-xl p-6 md:p-8">
         <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-50 mb-6">Account</h2>
-        <div className="space-y-3">
-          <button className="w-full px-6 py-3 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-50 rounded-lg font-medium hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors text-left">
-            Change Password
-          </button>
-          <button className="w-full px-6 py-3 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-50 rounded-lg font-medium hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors text-left">
-            Privacy & Security
-          </button>
-          <button className="w-full px-6 py-3 bg-red-100 dark:bg-red-950/30 text-red-700 dark:text-red-400 rounded-lg font-medium hover:bg-red-200 dark:hover:bg-red-950/50 transition-colors text-left">
-            Delete Account
-          </button>
+        <div className="space-y-4">
+          
+          {/* Change Password Toggle */}
+          {!showChangePassword ? (
+            <button 
+              onClick={() => setShowChangePassword(true)}
+              className="w-full px-6 py-3 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-50 rounded-lg font-medium hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors text-left"
+            >
+              Change Password
+            </button>
+          ) : (
+            <form onSubmit={handleChangePassword} className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-lg space-y-4 border border-slate-200 dark:border-slate-700">
+              <h3 className="font-bold text-slate-900 dark:text-slate-50">Change Password</h3>
+              <input
+                type="password"
+                placeholder="Old Password"
+                required
+                value={passwordData.oldPassword}
+                onChange={(e) => setPasswordData({...passwordData, oldPassword: e.target.value})}
+                className="w-full px-4 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg outline-none focus:border-indigo-500"
+              />
+              <input
+                type="password"
+                placeholder="New Password"
+                required
+                value={passwordData.newPassword}
+                onChange={(e) => setPasswordData({...passwordData, newPassword: e.target.value})}
+                className="w-full px-4 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg outline-none focus:border-indigo-500"
+              />
+              <div className="flex gap-2">
+                <button type="submit" disabled={isChangingPassword} className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50">
+                  {isChangingPassword ? "Saving..." : "Save Password"}
+                </button>
+                <button type="button" onClick={() => setShowChangePassword(false)} className="px-4 py-2 bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-white rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600">
+                  Cancel
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* Delete Account Toggle */}
+          {!showDeleteConfirm ? (
+            <button 
+              onClick={() => setShowDeleteConfirm(true)}
+              className="w-full px-6 py-3 bg-red-100 dark:bg-red-950/30 text-red-700 dark:text-red-400 rounded-lg font-medium hover:bg-red-200 dark:hover:bg-red-950/50 transition-colors text-left"
+            >
+              Delete Account
+            </button>
+          ) : (
+            <div className="bg-red-50 dark:bg-red-950/20 p-4 rounded-lg space-y-4 border border-red-200 dark:border-red-900/50">
+              <h3 className="font-bold text-red-700 dark:text-red-400">Are you absolutely sure?</h3>
+              <p className="text-sm text-red-600 dark:text-red-300">This action cannot be undone. All of your data, interviews, and analytics will be permanently deleted.</p>
+              <div className="flex gap-2">
+                <button onClick={handleDeleteAccount} disabled={isDeleting} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50">
+                  {isDeleting ? "Deleting..." : "Yes, Delete My Account"}
+                </button>
+                <button onClick={() => setShowDeleteConfirm(false)} className="px-4 py-2 bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-white rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

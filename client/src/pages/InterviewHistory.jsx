@@ -1,18 +1,16 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Filter, Download, Archive } from 'lucide-react'
 import InterviewHistory from '../components/dashboard/InterviewHistory'
 import { useApp } from '../context/AppContext'
 
 export default function InterviewHistoryPage() {
-  const { state } = useApp()
+  const { state, refreshInterviews } = useApp()
   const { interviewHistory, stats } = state
-  const [filterDifficulty, setFilterDifficulty] = useState('All')
+  const filtered = interviewHistory
 
-  const difficulties = ['All', 'Beginner', 'Intermediate', 'Advanced']
-  const filtered =
-    filterDifficulty === 'All'
-      ? interviewHistory
-      : interviewHistory.filter((i) => i.difficulty === filterDifficulty)
+  useEffect(() => {
+    refreshInterviews();
+  }, []);
 
   const avgScore =
     filtered.length > 0
@@ -44,33 +42,18 @@ export default function InterviewHistoryPage() {
         <div className="glass-card rounded-xl p-6">
           <p className="text-sm text-slate-600 dark:text-slate-400 mb-1">Total Time</p>
           <p className="text-3xl font-bold text-slate-900 dark:text-slate-50">
-            {Math.round(filtered.reduce((sum, i) => sum + parseInt(i.duration), 0) / 60)}h
+            {Math.round(filtered.reduce((sum, i) => {
+              if (i.startedAt && i.endedAt) {
+                const diff = (new Date(i.endedAt) - new Date(i.startedAt)) / 60000;
+                return sum + (diff > 0 ? diff : 0);
+              }
+              return sum;
+            }, 0) / 60)}h
           </p>
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="glass-card rounded-xl p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Filter className="w-5 h-5 text-slate-600 dark:text-slate-400" />
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-50">Filter by Difficulty</h3>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {difficulties.map((difficulty) => (
-            <button
-              key={difficulty}
-              onClick={() => setFilterDifficulty(difficulty)}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                filterDifficulty === difficulty
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-50 hover:bg-slate-200 dark:hover:bg-slate-700'
-              }`}
-            >
-              {difficulty}
-            </button>
-          ))}
-        </div>
-      </div>
+
 
       {/* Interview History Component */}
       <InterviewHistory data={filtered} />

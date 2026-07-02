@@ -1,8 +1,6 @@
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 
 export default function ErrorPage({ error, resetError }) {
-  const navigate = useNavigate();
 
   const handleReload = () => {
     if (resetError) resetError();
@@ -11,7 +9,7 @@ export default function ErrorPage({ error, resetError }) {
 
   const handleGoHome = () => {
     if (resetError) resetError();
-    navigate('/');
+    window.location.href = '/';
   };
 
   return (

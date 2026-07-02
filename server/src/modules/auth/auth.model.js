@@ -8,7 +8,9 @@ const userSchema = new mongoose.Schema({
   picture: { type: String },
   password: { type: String },
   provider: { type: String, enum: ['local', 'google'], required: true, default: 'local' },
-  refreshToken: { type: String }
+  refreshToken: { type: String },
+  resetPasswordToken: { type: String },
+  resetPasswordExpires: { type: Date }
 }, { timestamps: true });
 
 userSchema.index(

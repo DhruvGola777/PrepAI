@@ -76,7 +76,6 @@ export async function getUserByRefreshToken(token) {
     }
     return user;
   } catch (error) {
-    console.log(error);
     return null;
   }
 }

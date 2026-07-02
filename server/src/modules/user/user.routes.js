@@ -9,7 +9,9 @@ import {
   getInterviewById,
   getScoreSummary,
   getUserFeedback,
-  getRecommendations
+  getRecommendations,
+  deleteAccount,
+  uploadAvatar
 } from './user.controller.js';
 import { authenticateJWT } from '../../shared/middleware/authMiddleware.js';
 import { validateRequest } from '../../shared/middleware/validation.middleware.js';
@@ -26,6 +28,19 @@ const resumeUpload = multer({
     const allowed = ['.pdf', '.doc', '.docx'];
     if (!allowed.includes(path.extname(file.originalname).toLowerCase())) {
       return cb(new Error('Only PDF/DOC/DOCX files are allowed'));
+    }
+    cb(null, true);
+  }
+});
+
+// configure multer memory storage for image uploads
+const imageUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: (req, file, cb) => {
+    const allowed = ['.jpg', '.jpeg', '.png', '.webp'];
+    if (!allowed.includes(path.extname(file.originalname).toLowerCase())) {
+      return cb(new Error('Only JPG/JPEG/PNG/WEBP files are allowed'));
     }
     cb(null, true);
   }
@@ -53,6 +68,14 @@ userRouter.put('/me', authenticateJWT, validateRequest(updateUserSchema), catchA
  * @body {file} - Resume file (multipart/form-data)
  */
 userRouter.post('/me/resume', authenticateJWT, resumeUpload.single('file'), catchAsync(uploadResume));
+
+/**
+ * @route POST /api/users/me/avatar
+ * @desc Upload user's profile picture
+ * @access Private - Requires JWT authentication
+ * @body {file} - Image file (multipart/form-data)
+ */
+userRouter.post('/me/avatar', authenticateJWT, imageUpload.single('file'), catchAsync(uploadAvatar));
 
 /**
  * @route GET /api/users/me/interviews
@@ -88,5 +111,12 @@ userRouter.get('/me/feedback', authenticateJWT, catchAsync(getUserFeedback));
  * @access Private - Requires JWT authentication
  */
 userRouter.get('/me/recommendations', authenticateJWT, catchAsync(getRecommendations));
+
+/**
+ * @route DELETE /api/users/me
+ * @desc Delete complete user account footprint
+ * @access Private - Requires JWT authentication
+ */
+userRouter.delete('/me', authenticateJWT, catchAsync(deleteAccount));
 
 export default userRouter;

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Trophy, MessageSquare, AlertTriangle, CheckCircle2, BookOpen, ExternalLink, Calendar, Clock, Loader2, Sparkles, Target, BarChart2, ChevronDown, ChevronUp, PlayCircle } from 'lucide-react'
+import { userService } from '../services/userService'
 
 export default function InterviewDetails() {
   const { id } = useParams()
@@ -14,97 +15,23 @@ export default function InterviewDetails() {
     setExpanded(prev => ({ ...prev, [key]: !prev[key] }))
   }
 
-  const getMockDetails = (mockId) => {
-    const mockTitles = {
-      '1': 'React Technical Interview',
-      '2': 'System Design Interview',
-      '3': 'JavaScript Fundamentals',
-      '4': 'Node.js and Backend',
-      '5': 'Database Design'
-    }
-
-    const title = mockTitles[mockId] || 'Practice Interview Session'
-    const scoresMap = {
-      '1': { overall: 87, technical: 85, communication: 88, confidence: 90, problemSolving: 85 },
-      '2': { overall: 72, technical: 70, communication: 75, confidence: 70, problemSolving: 75 },
-      '3': { overall: 95, technical: 96, communication: 94, confidence: 95, problemSolving: 95 },
-      '4': { overall: 81, technical: 80, communication: 82, confidence: 80, problemSolving: 82 },
-      '5': { overall: 78, technical: 75, communication: 80, confidence: 80, problemSolving: 77 }
-    }
-    const scores = scoresMap[mockId] || { overall: 80, technical: 80, communication: 80, confidence: 80, problemSolving: 80 }
-
-    return {
-      _id: mockId,
-      title: title,
-      type: mockId === '2' ? 'mixed' : 'technical',
-      startedAt: new Date(Date.now() - 3600000).toISOString(),
-      endedAt: new Date().toISOString(),
-      score: scores.overall,
-      transcript: [
-        {
-          question: `Explain the fundamental logic behind your recent ${title} projects. What optimizations did you perform?`,
-          answer: "In my recent projects, I structured the architecture using container-component patterns, separation of concerns, and clean context state management. We reduced re-renders and optimized core database indexes to handle traffic spikes. We also implemented lazy loading for components outside the primary viewport and structured virtual lists to optimize DOM element size, which brought the initial bundle payload size down by almost 45%.",
-          score: scores.overall + 3,
-          feedback: "Great structure in the answer. Clear emphasis on architectural design, optimization, and problem-solving metrics. You accurately described modern patterns such as bundle division, lazy loading, and list virtualisation which are key performance benchmarks.",
-          idealAnswer: "In recent projects, I led the architecture by combining component-container patterns with efficient global state (Context/Redux). For optimization, I addressed rendering bottlenecks using useMemo and React.memo. I also split the bundle via dynamic imports (React.lazy) and implemented windowing for long lists, which decreased initial load times by 40% and improved TTI (Time to Interactive).",
-          starEvaluation: {
-            situation: "Asked to explain recent project logic and optimizations.",
-            task: "Outline architectural decisions and specific performance improvements.",
-            action: "Structured architecture, optimized database indexes, implemented lazy loading and virtual lists.",
-            result: "Reduced bundle size by 45% and handled traffic spikes effectively."
-          }
-        },
-        {
-          question: "How do you handle global error boundaries and boundary test cases?",
-          answer: "We wrap our components with global custom error boundaries to catch runtime errors gracefully. On the backend, we implement a central async handler middleware that catches all unhandled rejections and sends a clean format response. Additionally, we use integration tests that assert mock components that throw rendering errors, checking that the fallback custom UI shows up and files error logs properly.",
-          score: scores.overall - 4,
-          feedback: "Solid technical explanation. Good mention of central error middlewares and global component boundary safety nets. You could expand this by explaining how React 18 recovery mechanisms work or explaining logging service integrations.",
-          idealAnswer: "I implement Error Boundaries at the route level to catch rendering errors and display a graceful fallback UI, while logging the stack trace to an external service like Sentry. For boundary testing, I write Jest/React Testing Library specs that intentionally throw errors in child components to assert that the Error Boundary catches them. On the backend, I use a centralized error handling middleware to format and log unhandled rejections.",
-          starEvaluation: {
-            situation: "Asked about handling global error boundaries and testing them.",
-            task: "Explain implementation of error boundaries and corresponding test strategies.",
-            action: "Wrapped components with global error boundaries, implemented backend async handler, and wrote integration tests.",
-            result: "Gracefully caught runtime errors and verified fallback UIs."
-          }
-        }
-      ],
-      feedbackRef: {
-        feedbackText: `This detailed analysis report represents the evaluation summary of the ${title} session. The candidate demonstrated key core strengths in this track.`,
-        scores: scores,
-        behavioralEvaluation: {
-          starMethod: {
-            score: scores.overall + 2,
-            feedback: "Candidate effectively utilized the STAR method to structure their responses, providing clear context and measurable results."
-          }
-        },
-        technicalAnalysis: {
-          idealAnswerComparison: "The candidate's technical responses aligned with 80%+ of key index checks, showing stable performance metrics.",
-          missingPoints: ["Load balancing details", "Cache validation logic", "Unit test assertion frameworks"],
-          weaknesses: ["Deep-dive performance benchmarks", "Strict memory constraints handling"],
-          strengths: ["Clear terminology explanation", "Central error safety architectures", "Concise structuring"]
-        },
-        learningLinks: [
-          { title: `${title} Reference Guide`, url: "https://react.dev/" },
-          { title: "React Performance Tuning Guide (YouTube Tutorial)", url: "https://www.youtube.com/watch?v=dpw9EHDh2bM" },
-          { title: "PrepAI Best Practice Cheatsheet", url: "https://github.com" }
-        ],
-        recommendations: [
-          { title: "System Architecture Constraints & Scalability (YouTube Video)", url: "https://www.youtube.com/watch?v=I532r6-b2BY" },
-          { title: "Study advanced caching algorithms", url: "https://github.com" }
-        ]
+  useEffect(() => {
+    const fetchInterviewDetails = async () => {
+      setLoading(true)
+      try {
+        const res = await userService.getInterviewById(id)
+        setInterview(res.data)
+      } catch (err) {
+        console.error('Failed to fetch interview details:', err)
+        setError('Interview not found or failed to load.')
+      } finally {
+        setLoading(false)
       }
     }
-  }
-
-  useEffect(() => {
-    const fetchInterviewDetails = () => {
-      setLoading(true)
-      setTimeout(() => {
-        setInterview(getMockDetails(id || '1'))
-        setLoading(false)
-      }, 500)
+    
+    if (id) {
+      fetchInterviewDetails()
     }
-    fetchInterviewDetails()
   }, [id])
 
   if (loading) {

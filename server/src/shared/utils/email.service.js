@@ -46,7 +46,6 @@ export async function sendWelcomeEmail(user) {
     };
 
     const info = await transporter.sendMail(mailOptions);
-    console.log('Welcome email sent:', info.response);
     return true;
   } catch (error) {
     console.error('Error sending welcome email:', error);

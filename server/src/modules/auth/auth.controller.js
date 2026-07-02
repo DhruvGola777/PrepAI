@@ -1,10 +1,15 @@
 import passport from 'passport';
+import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
 import { generateAccessToken, generateRefreshToken, saveRefreshToken, getUserByRefreshToken, revokeRefreshToken, registerLocalUser, authenticateLocalUser } from './auth.service.js';
 import { findUserByEmail, createUserProfile } from '../user/user.service.js';
 import { sendWelcomeEmail } from '../../shared/utils/email.service.js';
+import { sendPasswordResetEmail } from '../../shared/utils/email.js';
+import User from './auth.model.js';
 import ConflictError from '../../shared/errors/ConflictError.js';
 import UnauthorizedError from '../../shared/errors/UnauthorizedError.js';
 import BadRequestError from '../../shared/errors/BadRequestError.js';
+import NotFoundError from '../../shared/errors/NotFoundError.js';
 
 function setRefreshCookie(res, token) {
   res.cookie('refreshToken', token, {
@@ -145,18 +150,8 @@ export const googleCallback = async (req, res, next) => {
     
     setRefreshCookie(res, refreshToken);
 
-    return res.json({
-      message: 'Login successful',
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        username: user.username,
-        picture: user.picture
-      },
-      accessToken,
-      refreshToken // Added for easier testing
-    });
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    return res.redirect(`${frontendUrl}/oauth-callback?token=${accessToken}`);
   } catch (error) {
     console.error('Google callback error:', error.message);
     return next(error);
@@ -231,6 +226,116 @@ export const logout = async (req, res, next) => {
     return res.json({ message: 'Logout successful' });
   } catch (error) {
     console.error('Logout error:', error.message);
+    return next(error);
+  }
+};
+
+/**
+ * Request password reset email
+ * @POST /auth/forgot-password
+ * @access Public
+ */
+export const forgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      // Return success even if user not found to prevent email enumeration
+      return res.json({ message: 'If that email is registered, a password reset link has been sent.' });
+    }
+
+    if (user.provider === 'google') {
+      return next(new BadRequestError('Google users cannot reset password via this method.'));
+    }
+
+    // Generate reset token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetTokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
+
+    // Save token hash and expiration (1 hour)
+    user.resetPasswordToken = resetTokenHash;
+    user.resetPasswordExpires = Date.now() + 3600000;
+    await user.save();
+
+    const resetUrl = `http://localhost:5173/reset-password/${resetToken}`; // Assuming frontend runs on 5173
+    
+    await sendPasswordResetEmail(user.email, resetUrl);
+
+    res.json({ message: 'If that email is registered, a password reset link has been sent.' });
+  } catch (error) {
+    console.error('Forgot password error:', error.message);
+    return next(error);
+  }
+};
+
+/**
+ * Reset password using token
+ * @POST /auth/reset-password/:token
+ * @access Public
+ */
+export const resetPassword = async (req, res, next) => {
+  try {
+    const { token } = req.params;
+    const { password } = req.body;
+
+    const resetTokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+    const user = await User.findOne({
+      resetPasswordToken: resetTokenHash,
+      resetPasswordExpires: { $gt: Date.now() }
+    });
+
+    if (!user) {
+      return next(new BadRequestError('Password reset token is invalid or has expired.'));
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(password, salt);
+    
+    // Clear reset fields
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    
+    await user.save();
+
+    res.json({ message: 'Password has been reset successfully.' });
+  } catch (error) {
+    console.error('Reset password error:', error.message);
+    return next(error);
+  }
+};
+
+/**
+ * Change password
+ * @POST /auth/change-password
+ * @access Private
+ */
+export const changePassword = async (req, res, next) => {
+  try {
+    const { oldPassword, newPassword } = req.body;
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return next(new NotFoundError('User not found'));
+    }
+
+    if (user.provider === 'google') {
+      return next(new BadRequestError('Google users cannot change password.'));
+    }
+
+    const isMatch = await bcrypt.compare(oldPassword, user.password);
+    if (!isMatch) {
+      return next(new UnauthorizedError('Incorrect old password'));
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(newPassword, salt);
+    await user.save();
+
+    res.json({ message: 'Password changed successfully' });
+  } catch (error) {
+    console.error('Change password error:', error.message);
     return next(error);
   }
 };

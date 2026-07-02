@@ -1,7 +1,8 @@
 import React, { useState, useRef } from 'react'
 import { Upload, FileText, Download, Trash2, Check } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
-import api from '../../api/axios'
+import { userService } from '../../services/userService'
+import toast from 'react-hot-toast'
 
 export default function ResumeUpload() {
   const { state, updateResume } = useApp()
@@ -29,11 +30,10 @@ export default function ResumeUpload() {
   const handleFileSelect = async (file) => {
     updateResume({ uploading: true, uploadProgress: 10 })
 
-    const formData = new FormData()
-    formData.append('file', file)
+    try {
+      updateResume({ uploadProgress: 50 })
+      await userService.uploadResume(file)
 
-    // Mock Upload Process
-    setTimeout(() => {
       updateResume({
         fileName: file.name,
         fileSize: `${(file.size / 1024).toFixed(0)} KB`,
@@ -41,7 +41,12 @@ export default function ResumeUpload() {
         uploadProgress: 100,
         uploading: false,
       })
-    }, 1500)
+      toast.success('Resume uploaded successfully!')
+    } catch (error) {
+      console.error('Resume upload failed:', error)
+      updateResume({ uploading: false, uploadProgress: 0 })
+      toast.error('Failed to upload resume. Please try again.')
+    }
   }
 
   const handleInputChange = (e) => {
@@ -62,71 +67,11 @@ export default function ResumeUpload() {
 
   return (
     <div className="glass-card rounded-xl p-6 md:p-8">
-      <h3 className="text-xl font-bold text-slate-900 dark:text-slate-50 mb-6">Resume Upload</h3>
+      <h3 className="text-xl font-bold text-slate-900 dark:text-slate-50 mb-6">Resume Management</h3>
 
-      {!resume.fileName ? (
-        <>
-          {/* Upload Area */}
-          <div
-            onDragEnter={handleDrag}
-            onDragLeave={handleDrag}
-            onDragOver={handleDrag}
-            onDrop={handleDrop}
-            className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer ${
-              dragActive
-                ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30'
-                : 'border-slate-300 dark:border-slate-600 hover:border-blue-500'
-            }`}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".pdf,.doc,.docx"
-              onChange={handleInputChange}
-              className="hidden"
-            />
-
-            <div className="flex justify-center mb-4">
-              <div className="w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-950/50 flex items-center justify-center">
-                <Upload className="w-8 h-8 text-blue-600 dark:text-blue-400" />
-              </div>
-            </div>
-
-            <h4 className="text-lg font-semibold text-slate-900 dark:text-slate-50 mb-2">
-              Drop your resume here
-            </h4>
-            <p className="text-slate-600 dark:text-slate-400 mb-4">
-              or click to browse from your computer
-            </p>
-            <p className="text-sm text-slate-500 dark:text-slate-500">
-              Supported formats: PDF, DOC, DOCX (Max 10MB)
-            </p>
-          </div>
-
-          {/* Features */}
-          <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
-            {[
-              { icon: FileText, title: 'Parse Content', desc: 'We extract and analyze your resume content' },
-              { icon: Check, title: 'Auto Check', desc: 'Verify completeness and formatting' },
-              { icon: Download, title: 'Easy Access', desc: 'Download anytime for interviews' },
-            ].map((feature, index) => {
-              const Icon = feature.icon
-              return (
-                <div key={index} className="text-center">
-                  <div className="inline-flex w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 items-center justify-center mb-3">
-                    <Icon className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <h5 className="font-semibold text-slate-900 dark:text-slate-50 mb-1">{feature.title}</h5>
-                  <p className="text-sm text-slate-600 dark:text-slate-400">{feature.desc}</p>
-                </div>
-              )
-            })}
-          </div>
-        </>
-      ) : (
-        <>
-          {/* Resume Uploaded */}
+      {resume.fileName && (
+        <div className="mb-8">
+          <h4 className="text-lg font-semibold text-slate-900 dark:text-slate-50 mb-4">Current Resume</h4>
           <div className="space-y-4">
             {resume.uploading && (
               <div>
@@ -187,8 +132,69 @@ export default function ResumeUpload() {
               </div>
             </div>
           </div>
-        </>
+        </div>
       )}
+
+      <div>
+        <h4 className="text-lg font-semibold text-slate-900 dark:text-slate-50 mb-4">Upload New Resume</h4>
+        <div
+          onDragEnter={handleDrag}
+          onDragLeave={handleDrag}
+          onDragOver={handleDrag}
+          onDrop={handleDrop}
+          className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer ${dragActive
+              ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30'
+              : 'border-slate-300 dark:border-slate-600 hover:border-blue-500'
+            }`}
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,.doc,.docx"
+            onChange={handleInputChange}
+            className="hidden"
+          />
+
+          <div className="flex justify-center mb-4">
+            <div className="w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-950/50 flex items-center justify-center">
+              <Upload className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+            </div>
+          </div>
+
+          <h4 className="text-lg font-semibold text-slate-900 dark:text-slate-50 mb-2">
+            Drop your resume here
+          </h4>
+          <p className="text-slate-600 dark:text-slate-400 mb-4">
+            or click to browse from your computer
+          </p>
+          <p className="text-sm text-slate-500 dark:text-slate-500">
+            Supported formats: PDF, DOC, DOCX (Max 10MB)
+          </p>
+        </div>
+
+        {/* Features (only show if no current resume, to save space) */}
+        {!resume.fileName && (
+          <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+            {[
+              { icon: FileText, title: 'Parse Content', desc: 'We extract and analyze your resume content' },
+              { icon: Check, title: 'Auto Check', desc: 'Verify completeness and formatting' },
+              { icon: Download, title: 'Easy Access', desc: 'Download anytime for interviews' },
+            ].map((feature, index) => {
+              const Icon = feature.icon
+              return (
+                <div key={index} className="text-center">
+                  <div className="inline-flex w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 items-center justify-center mb-3">
+                    <Icon className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <h5 className="font-semibold text-slate-900 dark:text-slate-50 mb-1">{feature.title}</h5>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">{feature.desc}</p>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

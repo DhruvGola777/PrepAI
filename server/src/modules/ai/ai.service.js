@@ -7,6 +7,9 @@ import NotFoundError from '../../shared/errors/NotFoundError.js';
 import BadRequestError from '../../shared/errors/BadRequestError.js';
 import { extractTextFromResume } from '../../shared/utils/resumeParser.js';
 import OpenAI from 'openai';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
 
 // Initialize Groq (OpenAI-compatible)
 const groq = new OpenAI({
@@ -91,13 +94,12 @@ export const startInterviewService = async (userId, interviewData) => {
     userId: profile._id,
     title: interviewData.position ? `Interview for ${interviewData.position}` : 'General Mock Interview',
     type: interviewData.type || 'mixed',
-    difficulty: interviewData.difficulty || 'intermediate',
     status: 'running',
     startedAt: new Date(),
     interviewer: {
       provider: 'groq',
       model: 'llama-3.3-70b-versatile',
-      prompt: `You are a senior technical interviewer interviewing for the position of ${interviewData.position || 'Software Engineer'} at a ${interviewData.difficulty || 'intermediate'} level.`
+      prompt: `You are a senior technical interviewer interviewing for the position of ${interviewData.position || 'Software Engineer'}.`
     }
   });
 
@@ -131,7 +133,7 @@ export const generateQuestionService = async (interviewId) => {
   const historyContext = history ? `\n\nInterview History:\n${history}` : "";
 
   const prompt = `
-    Generate a single ${interview.difficulty || 'intermediate'} level ${interview.type} interview question for the role of ${interview.title}.
+    Generate a single ${interview.type} interview question for the role of ${interview.title}.
     ${resumeContext}
     ${historyContext}
 
@@ -161,7 +163,7 @@ export const evaluateAnswerService = async (interviewId, question, answer) => {
     {
       "score": 0-100 (as number),
       "feedback": "constructive feedback string",
-      "idealAnswer": "what a perfect answer would look like",
+      "idealAnswer": "A full, detailed, and complete example of the perfect answer (written in the first person as if you are the candidate answering the question). Do NOT write a description of the answer.",
       "starEvaluation": { "situation": "...", "task": "...", "action": "...", "result": "..." }
     }
   `;
@@ -173,7 +175,9 @@ export const evaluateAnswerService = async (interviewId, question, answer) => {
     question,
     answer,
     score: evaluation.score,
-    feedback: evaluation.feedback
+    feedback: evaluation.feedback,
+    idealAnswer: evaluation.idealAnswer,
+    starEvaluation: evaluation.starEvaluation
   });
   await interview.save();
 
@@ -181,13 +185,30 @@ export const evaluateAnswerService = async (interviewId, question, answer) => {
 };
 
 /**
- * Transcribe audio buffer to text.
- * NOTE: Gemini does not have a direct Whisper equivalent in the text SDK.
- * This remains a placeholder or would require a separate STT service.
+ * Transcribe audio buffer to text using Groq's Whisper model.
  */
 export const transcribeAudioService = async (buffer, originalname) => {
-  console.log('Transcription requested for:', originalname);
-  throw new Error('Transcription service (Whisper) is currently unavailable. Please use text input.');
+  const tempFilePath = path.join(os.tmpdir(), `${Date.now()}-${originalname}`);
+  
+  try {
+    // Write buffer to a temp file because openai SDK requires a stream/file object
+    await fs.promises.writeFile(tempFilePath, buffer);
+    
+    const transcription = await groq.audio.transcriptions.create({
+      file: fs.createReadStream(tempFilePath),
+      model: "whisper-large-v3",
+    });
+
+    return transcription.text;
+  } catch (error) {
+    console.error('Transcription error:', error);
+    throw new Error('Failed to transcribe audio. Please try again or use text input.');
+  } finally {
+    // Clean up temp file
+    if (fs.existsSync(tempFilePath)) {
+      await fs.promises.unlink(tempFilePath).catch(console.error);
+    }
+  }
 };
 
 /**
@@ -211,29 +232,32 @@ export const generateFinalFeedbackService = async (interviewId) => {
 
   const feedbackData = await callAIProvider(prompt);
 
+  const safeScores = feedbackData?.scoreSummary || { overall: 75, technical: 75, communication: 75, confidence: 75, problemSolving: 75 };
+  const safeTechAnalysis = feedbackData?.technicalAnalysis || { missingPoints: [], weaknesses: [], strengths: [] };
+
   const feedback = await Feedback.create({
     userId: interview.userId,
     interviewId: interview._id,
-    feedbackText: feedbackData.feedbackText,
-    scores: feedbackData.scoreSummary,
-    scoreSummary: feedbackData.scoreSummary,
+    feedbackText: feedbackData?.feedbackText || "Overall good performance.",
+    scores: safeScores,
+    scoreSummary: safeScores,
     behavioralEvaluation: {
       starMethod: {
-        score: feedbackData.scoreSummary.communication,
+        score: safeScores.communication || 75,
         feedback: "Derived from overall performance."
       }
     },
-    technicalAnalysis: feedbackData.technicalAnalysis,
-    learningLinks: feedbackData.learningLinks,
-    recommendations: feedbackData.recommendations,
-    improvementSuggestions: feedbackData.technicalAnalysis.weaknesses
+    technicalAnalysis: safeTechAnalysis,
+    learningLinks: feedbackData?.learningLinks || [],
+    recommendations: feedbackData?.recommendations || [],
+    improvementSuggestions: safeTechAnalysis.weaknesses || []
   });
 
   const analysis = await AIAnalysis.create({
     type: 'interview',
     inputRef: interview._id,
     result: feedbackData,
-    score: feedback.scores.overall
+    score: feedback.scores.overall || 75
   });
 
   // Update UserProfile
@@ -245,7 +269,7 @@ export const generateFinalFeedbackService = async (interviewId) => {
   interview.endedAt = new Date();
   interview.feedbackRef = feedback._id;
   interview.analysisRef = analysis._id;
-  interview.score = feedback.scores.overall;
+  interview.score = feedback.scores.overall || 75;
   await interview.save();
 
   return { feedback, analysis };

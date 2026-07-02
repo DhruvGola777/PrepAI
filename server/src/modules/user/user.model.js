@@ -18,6 +18,14 @@ const UserProfileSchema = new mongoose.Schema({
   picture: { type: String },
   location: { type: String },
   bio: { type: String },
+  experienceYears: { type: Number, default: 0 },
+  skills: [{ type: String }],
+  education: [{
+    institution: String,
+    degree: String,
+    startYear: Number,
+    endYear: Number
+  }],
 
   // minimal resume history
   resumes: [ResumeEntrySchema],
@@ -25,7 +33,13 @@ const UserProfileSchema = new mongoose.Schema({
 
   // references to interviews and feedback (lightweight)
   interviews: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Interview' }],
-  feedbacks: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Feedback' }]
+  feedbacks: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Feedback' }],
+
+  // preferences
+  settings: {
+    emailNotifications: { type: Boolean, default: true },
+    soundEnabled: { type: Boolean, default: true }
+  }
 
 }, { timestamps: true });
 

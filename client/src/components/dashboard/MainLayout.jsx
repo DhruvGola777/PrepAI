@@ -37,11 +37,15 @@ export default function MainLayout() {
             </button>
 
             <div className="flex items-center gap-3 border-l border-slate-200 dark:border-gray-800 pl-6">
-              <div className="w-9 h-9 rounded-full bg-blue-100 dark:bg-indigo-600/30 border border-blue-200 dark:border-indigo-500/20 text-blue-600 dark:text-indigo-400 flex items-center justify-center font-bold text-sm shrink-0">
-                {user.avatar || 'AP'}
+              <div className="w-9 h-9 rounded-full bg-blue-100 dark:bg-indigo-600/30 border border-blue-200 dark:border-indigo-500/20 text-blue-600 dark:text-indigo-400 flex items-center justify-center font-bold text-sm shrink-0 overflow-hidden">
+                {user?.picture ? (
+                  <img src={user.picture} alt="Avatar" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                ) : (
+                  user?.name ? user.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : 'AP'
+                )}
               </div>
               <span className="hidden sm:block text-sm font-semibold text-slate-700 dark:text-gray-200">
-                {user.name || 'Aria Patel'}
+                {user?.name || 'Aria Patel'}
               </span>
             </div>
           </div>
